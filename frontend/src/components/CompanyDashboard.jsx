@@ -1273,7 +1273,7 @@ const CompanyDashboard = () => {
                                 <button 
                                     type="submit" 
                                     className="btn btn-primary"
-                                    disabled={isSubmitting || availableWorkTypes.length === 0}
+                                    disabled={isSubmitting || availableWorkTypes.length === 0 || !assignmentData.labourId || !assignmentData.workType || !assignmentData.quantity}
                                     style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                 >
                                     <Zap size={18} />

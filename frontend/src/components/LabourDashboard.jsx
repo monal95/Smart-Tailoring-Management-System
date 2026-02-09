@@ -599,48 +599,45 @@ const LabourDashboard = ({ searchTerm = '', filterCategory = 'all' }) => {
 // Labour Stats Modal Component
 const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
     const [assignments, setAssignments] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    // Load work assignments with date range filter
-    const fetchAssignmentsByDateRange = React.useCallback(async (start, end) => {
-        try {
-            setLoading(true);
-            const data = await workAssignmentsAPI.getLabourSummary(labour._id, start, end);
-            setAssignments(data.assignments || []);
-            setError(null);
-        } catch (err) {
-            console.error('Error fetching assignments:', err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [labour._id]);
-
-    // Handle filter button click
-    const handleFilterByDateRange = () => {
-        if (!startDate || !endDate) {
-            setError('Please select both start and end dates');
-            return;
-        }
-        if (new Date(startDate) > new Date(endDate)) {
-            setError('Start date must be before end date');
-            return;
-        }
-        fetchAssignmentsByDateRange(startDate, endDate);
-    };
-
-    // Load all assignments on component mount
+    // Load work assignments from API
     useEffect(() => {
-        if (labour && labour._id) {
-            fetchAssignmentsByDateRange('1970-01-01', new Date().toISOString().split('T')[0]);
-        }
-    }, [labour, fetchAssignmentsByDateRange]);
+        const fetchAssignments = async () => {
+            try {
+                setLoading(true);
+                const data = await workAssignmentsAPI.getByLabour(labour._id);
+                setAssignments(data);
+                setError(null);
+            } catch (err) {
+                console.error('Error fetching assignments:', err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const totalWages = assignments.reduce((sum, work) => sum + work.totalWages, 0);
-    const totalQuantity = assignments.reduce((sum, work) => sum + work.quantity, 0);
+        if (labour && labour._id) {
+            fetchAssignments();
+        }
+    }, [labour]);
+
+    // Filter assignments based on date range
+    const filteredAssignments = startDate || endDate ? assignments.filter(work => {
+        const assignDate = new Date(work.assignedDate);
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+        
+        if (start && assignDate < start) return false;
+        if (end && assignDate > end) return false;
+        return true;
+    }) : assignments;
+
+    const totalWages = filteredAssignments.reduce((sum, work) => sum + work.totalWages, 0);
+    const totalQuantity = filteredAssignments.reduce((sum, work) => sum + work.quantity, 0);
 
     return (
         <div style={{
@@ -1060,18 +1057,20 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                 borderBottom: '2px solid #e2e8f0',
                                 paddingBottom: '1rem'
                             }}>
-                                Labour Work Statistics by Date Range
+                                Work History & Statistics
                             </h3>
 
-                            {/* Date Range Filter */}
+                            {/* Date Range Filters */}
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 1fr auto',
                                 gap: '1rem',
                                 marginBottom: '1.5rem',
-                                alignItems: 'flex-end'
+                                padding: '1rem',
+                                backgroundColor: '#fff',
+                                borderRadius: '8px',
+                                border: '1px solid #e2e8f0'
                             }}>
-                                {/* Start Date */}
                                 <div>
                                     <label style={{
                                         display: 'block',
@@ -1089,17 +1088,15 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                         onChange={(e) => setStartDate(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '0.6rem 0.75rem',
+                                            padding: '0.6rem',
                                             border: '1px solid #cbd5e1',
                                             borderRadius: '6px',
-                                            fontSize: '0.9rem',
-                                            fontFamily: 'inherit',
+                                            fontSize: '0.95rem',
                                             boxSizing: 'border-box'
                                         }}
                                     />
                                 </div>
 
-                                {/* End Date */}
                                 <div>
                                     <label style={{
                                         display: 'block',
@@ -1117,33 +1114,59 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                         onChange={(e) => setEndDate(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '0.6rem 0.75rem',
+                                            padding: '0.6rem',
                                             border: '1px solid #cbd5e1',
                                             borderRadius: '6px',
-                                            fontSize: '0.9rem',
-                                            fontFamily: 'inherit',
+                                            fontSize: '0.95rem',
                                             boxSizing: 'border-box'
                                         }}
                                     />
                                 </div>
 
-                                {/* Filter Button */}
-                                <button
-                                    onClick={handleFilterByDateRange}
-                                    disabled={loading}
-                                    className="btn btn-primary"
-                                    style={{
-                                        padding: '0.6rem 1.5rem',
-                                        fontSize: '0.85rem',
-                                        fontWeight: '500',
-                                        minWidth: '100px',
-                                        opacity: loading ? 0.6 : 1,
-                                        cursor: loading ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {loading ? 'Loading...' : 'Filter'}
-                                </button>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-end'
+                                }}>
+                                    <button
+                                        onClick={() => {
+                                            setStartDate('');
+                                            setEndDate('');
+                                        }}
+                                        style={{
+                                            padding: '0.6rem 1rem',
+                                            backgroundColor: '#f1f5f9',
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            fontWeight: '500',
+                                            color: '#64748b',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#e2e8f0';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#f1f5f9';
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Loading State */}
+                            {loading && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '200px',
+                                    color: '#64748b'
+                                }}>
+                                    <p>Loading assignments...</p>
+                                </div>
+                            )}
 
                             {/* Error State */}
                             {error && (
@@ -1155,8 +1178,7 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                     color: '#dc2626',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.75rem',
-                                    marginBottom: '1rem'
+                                    gap: '0.75rem'
                                 }}>
                                     <AlertCircle size={20} />
                                     <p style={{ margin: 0 }}>{error}</p>
@@ -1164,18 +1186,18 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                             )}
 
                             {/* No Data State */}
-                            {!loading && !error && assignments.length === 0 && (
+                            {!loading && !error && filteredAssignments.length === 0 && (
                                 <div style={{
                                     textAlign: 'center',
                                     padding: '2rem',
                                     color: '#64748b'
                                 }}>
-                                    <p>No work assignments found for the selected date range.</p>
+                                    <p>{assignments.length === 0 ? 'No work assignments yet. Assign work from order dashboards.' : 'No work assignments found for the selected date range.'}</p>
                                 </div>
                             )}
 
                             {/* Work Items */}
-                            {!loading && assignments.length > 0 && (
+                            {!loading && filteredAssignments.length > 0 && (
                                 <div style={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1183,7 +1205,7 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                     overflowY: 'auto',
                                     flex: 1
                                 }}>
-                                    {assignments.map((work) => (
+                                    {filteredAssignments.map((work) => (
                                         <div
                                             key={work._id}
                                             style={{
@@ -1213,10 +1235,10 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                                     <span style={{
                                                         fontSize: '0.85rem',
                                                         fontWeight: '700',
-                                                        color: '#dc2626',
-                                                        backgroundColor: '#fee2e2',
-                                                        padding: '0.3rem 0.8rem',
-                                                        borderRadius: '4px',
+                                                        color: '#fff',
+                                                        backgroundColor: '#3b82f6',
+                                                        padding: '0.4rem 0.8rem',
+                                                        borderRadius: '6px',
                                                         marginRight: '0.75rem'
                                                     }}>
                                                         Order ID: {work.orderId}
@@ -1236,14 +1258,26 @@ const LabourStatsModal = ({ labour, onClose, onEdit, onDelete }) => {
                                                     display: 'inline-block',
                                                     backgroundColor: work.status === 'Completed' ? '#dcfce7' : work.status === 'InProgress' ? '#fef3c7' : '#dbeafe',
                                                     color: work.status === 'Completed' ? '#166534' : work.status === 'InProgress' ? '#92400e' : '#1e40af',
-                                                    padding: '0.3rem 0.8rem',
-                                                    borderRadius: '4px',
+                                                    padding: '0.4rem 0.8rem',
+                                                    borderRadius: '6px',
                                                     fontSize: '0.75rem',
                                                     fontWeight: '600'
                                                 }}>
                                                     {work.status}
                                                 </span>
                                             </div>
+
+                                            {/* Customer Name */}
+                                            {work.orderCustomerName && (
+                                                <p style={{
+                                                    margin: '0 0 0.5rem 0',
+                                                    fontSize: '0.9rem',
+                                                    color: '#64748b',
+                                                    fontStyle: 'italic'
+                                                }}>
+                                                    Customer: <strong>{work.orderCustomerName}</strong>
+                                                </p>
+                                            )}
 
                                             {/* Work Type and Description */}
                                             <p style={{
