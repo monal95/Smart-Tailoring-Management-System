@@ -13,7 +13,7 @@ import { Search, Filter } from "lucide-react";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentPage, setCurrentPage] = useState("landingpage"); // 'landing', 'login', or 'app'
+  const [currentPage, setCurrentPage] = useState("landing"); // 'landing', 'login', or 'app'
   const [activeView, setActiveView] = useState("civil-dashboard");
   const [orders, setOrders] = useState([]);
   const [labourSearchTerm, setLabourSearchTerm] = useState("");
@@ -46,12 +46,12 @@ function App() {
       // Restore session if user was logged in
       const savedView = localStorage.getItem("activeView");
       setIsAuthenticated(true); // eslint-disable-line
-      setCurrentPage("app");
       if (savedView) {
         setActiveView(savedView);
       }
     }
-    // If no auth, stay on landing page (default state)
+    // Always show landing page first, regardless of login status
+    setCurrentPage("landing");
   }, []);
 
   // Fetch civil orders from API (current month only)
